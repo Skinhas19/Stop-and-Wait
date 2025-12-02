@@ -84,11 +84,12 @@ void send_file(int sock, const char* filename, struct sockaddr_in client_addr, s
         int ack_received = 0;
 
         while (!ack_received) {
-            printf("[Thread %ld] Enviando seq=%d (%d bytes)...\n", pthread_self(), packet.seq_num, packet.data_len);
+            printf("Enviando seq=%d (%zu bytes)...\n", packet.seq_num, bytes_read);
             sendto(sock, &packet, sizeof(DataPacket), 0, (struct sockaddr *)&client_addr, client_len);
             
             if (recvfrom(sock, &ack, sizeof(AckPacket), 0, (struct sockaddr *)&client_addr, &client_len) > 0) {
                 if (ack.ack_num == current_seq) {
+                    printf("Recebeu ACK=%d. Sucesso.\n", ack.ack_num);
                     ack_received = 1;
                     current_seq = 1 - current_seq;
                 }
@@ -134,10 +135,12 @@ void receive_file(int sock, const char* filename, struct sockaddr_in client_addr
             }
 
             if (packet.seq_num == expected_seq) {
+                printf("Recebeu seq=%d. Enviando ACK=%d\n", packet.seq_num, packet.seq_num);
                 fwrite(packet.data, 1, packet.data_len, fp);
                 ack.ack_num = expected_seq;
                 expected_seq = 1 - expected_seq;
             } else {
+                printf("Recebeu seq=%d (duplicado). Reenviando ACK=%d\n", packet.seq_num, (1-expected_seq));
                 ack.ack_num = 1 - expected_seq; // Reenviar ACK anterior
             }
             sendto(sock, &ack, sizeof(AckPacket), 0, (struct sockaddr *)&client_addr, client_len);
